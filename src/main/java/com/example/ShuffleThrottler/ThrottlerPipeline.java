@@ -1,7 +1,6 @@
-package com.example;
+package com.example.ShuffleThrottler;
 
-import com.example.ExternalThrottler.ExternalThrottler;
-import com.example.ShuffleThrottler.ShuffleThrottler;
+
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.GenerateSequence;
 import org.apache.beam.sdk.options.PipelineOptions;
@@ -16,7 +15,7 @@ import org.joda.time.Duration;
 public class ThrottlerPipeline {
 
     public static void main(String[] args) {
-           //runStreamingTest();
+           runStreamingTest();
            //runBatchTest();
            //runWindowKVTest();
     }
@@ -26,9 +25,8 @@ public class ThrottlerPipeline {
         PipelineOptions options = PipelineOptionsFactory.create();
         Pipeline p = Pipeline.create(options);
 
-        p.apply("GenerateStreamingData", GenerateSequence.from(0).withRate(5, Duration.standardSeconds(1)))
-                .apply("ShuffleThrottle", new ShuffleThrottler<Long>(2).withBatchingDuration(Duration.standardSeconds(1)))
-               // .apply("ExternalThrottleStreaming", new ExternalThrottler<Long>(1, "http://localhost:8080"))
+        p.apply("GenerateStreamingData", GenerateSequence.from(0).withRate(10, Duration.standardSeconds(1)))
+                .apply("ShuffleThrottle", ShuffleThrottler.of(10, 10))
                 .apply("PrintStreamingElements", ParDo.of(new DoFn<Long, Void>() {
                     @ProcessElement
                     public void processElement(@Element Long element) {
@@ -50,8 +48,7 @@ public class ThrottlerPipeline {
                         out.output(KV.of((int) (element % 2) + 1, element)); // Single key for batch throttling
                     }
                 }))
-                // .apply("ShuffleThrottleBatch", new ShuffleThrottler<KV<Integer, Long>>(10))
-                .apply("ExternalThrottleStreaming", new ExternalThrottler<KV<Integer, Long>>(10, "http://localhost:8080"))
+                .apply("ShuffleThrottle", ShuffleThrottler.of(10, 10))
                 .apply("PrintBatchElements", ParDo.of(new DoFn<KV<Integer, Long>, Void>() {
                     @ProcessElement
                     public void processElement(@Element KV<Integer, Long> element) {
@@ -73,7 +70,7 @@ public class ThrottlerPipeline {
                         out.output(KV.of((int) (element % 10) + 1, element));
                     }
                 }))
-                .apply("ShuffleThrottleWindow", new ShuffleThrottler<KV<Integer, Long>>(5))
+                .apply("ShuffleThrottleWindow", ShuffleThrottler.of(5, 100))
                 .apply("PrintWindowElements", ParDo.of(new DoFn<KV<Integer, Long>, Void>() {
                     @ProcessElement
                     public void processElement(@Element KV<Integer, Long> element) {

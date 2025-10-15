@@ -1,23 +1,24 @@
 package com.example;
 
 public class TokenBucketRateLimiter {
-    private double permitsPerSecond;
-    private double capacity;
+    private long permitsPerSecond;
+    private long capacity;
     private long lastRefillTimestamp;
-    private double availablePermits;
+    private long availablePermits;
 
-    private TokenBucketRateLimiter(double permitsPerSecond) {
+    private TokenBucketRateLimiter(long permitsPerSecond, long capacity) {
         this.setRate(permitsPerSecond);
-        this.lastRefillTimestamp = System.nanoTime();
+        this.lastRefillTimestamp = 0;
         this.availablePermits = this.capacity;
     }
 
-    public static TokenBucketRateLimiter create(double permitsPerSecond) {
-        return new TokenBucketRateLimiter(permitsPerSecond);
+    public static TokenBucketRateLimiter create(long permitsPerSecond, long capacity) {
+        return new TokenBucketRateLimiter(permitsPerSecond, capacity);
     }
 
-    public synchronized boolean tryAcquire(int permits) {
+    public boolean tryAcquire(long permits) {
         refill();
+        System.out.println(availablePermits);
         if (availablePermits >= permits) {
             availablePermits -= permits;
             return true;
@@ -25,7 +26,7 @@ public class TokenBucketRateLimiter {
         return false;
     }
 
-    public void acquire(int permits) throws InterruptedException {
+    public void acquire(long permits) throws InterruptedException {
         boolean acquired = false;
         while(!acquired){
             if(tryAcquire(permits)){
@@ -40,7 +41,7 @@ public class TokenBucketRateLimiter {
         }
     }
 
-    public long getRetryAfterMillis(int permits) {
+    public long getRetryAfterMillis(long permits) {
         refill();
         double permitsNeeded = permits - availablePermits;
         if (permitsNeeded <= 0) {
@@ -50,15 +51,14 @@ public class TokenBucketRateLimiter {
         return (long) (secondsToWait * 1000) + 1;
     }
 
-    public synchronized void setRate(double permitsPerSecond) {
+    public void setRate(long permitsPerSecond) {
         this.permitsPerSecond = permitsPerSecond;
-        this.capacity = Math.max(1.0, permitsPerSecond);
     }
 
-    private synchronized void refill() {
+    private void refill() {
         long now = System.nanoTime();
         long elapsedNanos = now - lastRefillTimestamp;
-        double permitsToAdd = elapsedNanos / 1_000_000_000.0 * permitsPerSecond;
+        long permitsToAdd = (long) (elapsedNanos / 1_000_000_000.0 * permitsPerSecond);
         availablePermits = Math.min(capacity, availablePermits + permitsToAdd);
         lastRefillTimestamp = now;
     }

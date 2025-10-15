@@ -11,7 +11,7 @@ public class ExternalThrottlerDTOs {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class AcquireRequest {
-        private int permits;
+        private long permits;
     }
 
     @Data
@@ -26,7 +26,7 @@ public class ExternalThrottlerDTOs {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class RateUpdateRequest {
-        private double permitsPerSecond;
+        private long permitsPerSecond;
     }
 
     @Data

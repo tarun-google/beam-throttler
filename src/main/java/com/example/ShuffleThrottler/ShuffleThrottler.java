@@ -3,13 +3,9 @@ package com.example.ShuffleThrottler;
 
 import com.example.TokenBucketRateLimiter;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.GroupByKey;
+import org.apache.beam.sdk.transforms.GroupIntoBatches;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
-import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
-import org.apache.beam.sdk.transforms.windowing.Repeatedly;
-import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.Duration;
@@ -19,16 +15,28 @@ import java.util.Random;
 public class ShuffleThrottler<T> extends PTransform<PCollection<T>, PCollection<T>> {
 
     private final double permitsPerSecond;
-    private final int numberOfShards = 1;
-    private Duration batchingDuration;
+    private final int numberOfShards;
+    private final Long batchSize;
+    private final Duration batchDuration;
+    private static final Long DEFAULT_SIZE = 10L;
 
-    public ShuffleThrottler(double permitsPerSecond) {
+    private ShuffleThrottler(double permitsPerSecond, int numberOfShards, Long batchSize, Duration batchDuration) {
         this.permitsPerSecond = permitsPerSecond;
+        this.numberOfShards = numberOfShards;
+        this.batchSize = batchSize;
+        this.batchDuration = batchDuration;
     }
 
-    public ShuffleThrottler<T> withBatchingDuration(Duration batchingDuration) {
-        this.batchingDuration = batchingDuration;
-        return this;
+    public static <T> ShuffleThrottler<T> of(double permitsPerSecond, int numberOfShards) {
+        return new ShuffleThrottler<>(permitsPerSecond, numberOfShards, null, null);
+    }
+
+    public ShuffleThrottler<T> withBatchSize(long batchSize){
+        return new ShuffleThrottler<>(this.permitsPerSecond, this.numberOfShards, batchSize, this.batchDuration);
+    }
+
+    public ShuffleThrottler<T> withBatchDuration(Duration batchDuration){
+        return new ShuffleThrottler<>(this.permitsPerSecond, this.numberOfShards, this.batchSize, batchDuration);
     }
 
     @Override
@@ -36,20 +44,14 @@ public class ShuffleThrottler<T> extends PTransform<PCollection<T>, PCollection<
         PCollection<KV<Integer, T>> keyedInput = input
                 .apply("AssignRandomKey", ParDo.of(new AssignRandomKey<T>(this.numberOfShards)));
 
-        PCollection<KV<Integer, Iterable<T>>> groupedInput = null;
-        if (input.isBounded() == PCollection.IsBounded.UNBOUNDED &&
-                input.getWindowingStrategy().getWindowFn() instanceof GlobalWindows) {
-            groupedInput = keyedInput
-                    .apply("StreamingWindow", Window.<KV<Integer, T>>into(new GlobalWindows())
-                            .triggering(Repeatedly.forever(
-                                    AfterProcessingTime.pastFirstElementInPane()
-                                            .plusDelayOf(this.batchingDuration)))
-                            .withAllowedLateness(Duration.ZERO)
-                            .discardingFiredPanes())
-                    .apply("GroupIntoShards", GroupByKey.<Integer, T>create());
-        } else{
-            groupedInput = keyedInput.apply("GroupIntoShards", GroupByKey.<Integer, T>create());
+        GroupIntoBatches<Integer, T> groupIntoBatches = GroupIntoBatches.ofSize(DEFAULT_SIZE);
+        if (batchSize != null) {
+            groupIntoBatches = groupIntoBatches.withByteSize(batchSize);
+        }if (batchDuration != null) {
+            groupIntoBatches = groupIntoBatches.withMaxBufferingDuration(batchDuration);
         }
+        PCollection<KV<Integer, Iterable<T>>> groupedInput = keyedInput.apply("GroupIntoBatches", groupIntoBatches);
+
         return groupedInput.apply("RateLimitGroups", ParDo.of(new RateLimitingGroupDoFn<T>(this.permitsPerSecond, this.numberOfShards)));
     }
 
@@ -85,8 +87,8 @@ public class ShuffleThrottler<T> extends PTransform<PCollection<T>, PCollection<
 
         @Setup
         public void setup() {
-            double ratePerShard = permitsPerSecond / numberOfShards;
-            this.rateLimiter = TokenBucketRateLimiter.create(ratePerShard);
+            long ratePerShard = (long) (permitsPerSecond / numberOfShards);
+            this.rateLimiter = TokenBucketRateLimiter.create(ratePerShard, 100);
         }
 
         @ProcessElement

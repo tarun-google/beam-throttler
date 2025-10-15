@@ -10,7 +10,7 @@ import io.javalin.json.JavalinJackson;
 
 public class RateLimiterService {
 
-    private static final TokenBucketRateLimiter rateLimiter = TokenBucketRateLimiter.create(20.0);
+    private static final TokenBucketRateLimiter rateLimiter = TokenBucketRateLimiter.create(20, 20);
 
     public static void main(String[] args) {
         Javalin app = Javalin.create(config -> config.jsonMapper(new JavalinJackson())).start(8080);
