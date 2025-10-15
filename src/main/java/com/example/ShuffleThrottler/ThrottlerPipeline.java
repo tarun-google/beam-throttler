@@ -25,7 +25,7 @@ public class ThrottlerPipeline {
         PipelineOptions options = PipelineOptionsFactory.create();
         Pipeline p = Pipeline.create(options);
 
-        p.apply("GenerateStreamingData", GenerateSequence.from(0).withRate(10, Duration.standardSeconds(1)))
+        p.apply("GenerateStreamingData", GenerateSequence.from(0).withRate(100, Duration.standardSeconds(1)))
                 .apply("ShuffleThrottle", ShuffleThrottler.of(10, 10))
                 .apply("PrintStreamingElements", ParDo.of(new DoFn<Long, Void>() {
                     @ProcessElement

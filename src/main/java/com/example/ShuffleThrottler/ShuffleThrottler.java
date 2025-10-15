@@ -14,20 +14,20 @@ import java.util.Random;
 
 public class ShuffleThrottler<T> extends PTransform<PCollection<T>, PCollection<T>> {
 
-    private final double permitsPerSecond;
+    private final int permitsPerSecond;
     private final int numberOfShards;
     private final Long batchSize;
     private final Duration batchDuration;
     private static final Long DEFAULT_SIZE = 10L;
 
-    private ShuffleThrottler(double permitsPerSecond, int numberOfShards, Long batchSize, Duration batchDuration) {
+    private ShuffleThrottler(int permitsPerSecond, int numberOfShards, Long batchSize, Duration batchDuration) {
         this.permitsPerSecond = permitsPerSecond;
         this.numberOfShards = numberOfShards;
         this.batchSize = batchSize;
         this.batchDuration = batchDuration;
     }
 
-    public static <T> ShuffleThrottler<T> of(double permitsPerSecond, int numberOfShards) {
+    public static <T> ShuffleThrottler<T> of(int permitsPerSecond, int numberOfShards) {
         return new ShuffleThrottler<>(permitsPerSecond, numberOfShards, null, null);
     }
 
@@ -76,25 +76,25 @@ public class ShuffleThrottler<T> extends PTransform<PCollection<T>, PCollection<
 
     private static class RateLimitingGroupDoFn<T> extends DoFn<KV<Integer, Iterable<T>>, T> {
 
-        private final double permitsPerSecond;
+        private final int permitsPerSecond;
         private final int numberOfShards;
         private transient TokenBucketRateLimiter rateLimiter;
 
-        public RateLimitingGroupDoFn(double permitsPerSecond, int numberOfShards) {
+        public RateLimitingGroupDoFn(int permitsPerSecond, int numberOfShards) {
             this.permitsPerSecond = permitsPerSecond;
             this.numberOfShards = numberOfShards;
         }
 
         @Setup
         public void setup() {
-            long ratePerShard = (long) (permitsPerSecond / numberOfShards);
-            this.rateLimiter = TokenBucketRateLimiter.create(ratePerShard, 100);
+            int ratePerShard = permitsPerSecond / numberOfShards;
+            this.rateLimiter = TokenBucketRateLimiter.create(ratePerShard, 10);
         }
 
         @ProcessElement
         public void processElement(ProcessContext c) throws InterruptedException {
             for (T element : c.element().getValue()) {
-                rateLimiter.acquire(1);
+                rateLimiter.acquire();
                 c.output(element);
             }
         }

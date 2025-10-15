@@ -21,7 +21,7 @@ public class ExternalThrottler implements Serializable {
 
     private transient HttpClient httpClient;
     private transient ObjectMapper objectMapper;
-    private transient Long availablePermits;
+    private transient int availablePermits =0;
 
     private final Counter throttledRequests = Metrics.counter(ExternalThrottler.class, "throttled-requests");
     private final Counter failedRequests = Metrics.counter(ExternalThrottler.class, "failed-requests-to-ratelimiter");
@@ -45,7 +45,6 @@ public class ExternalThrottler implements Serializable {
                 .connectTimeout(REQUEST_TIMEOUT)
                 .build();
         this.objectMapper = new ObjectMapper();
-        this.availablePermits = 0L;
     }
 
     /**
@@ -59,8 +58,7 @@ public class ExternalThrottler implements Serializable {
         }
     }
 
-    private void acquirePermits(long numPermits) throws IOException, InterruptedException {
-
+    private void acquirePermits(int numPermits) throws IOException, InterruptedException {
         AcquireRequest payload = new AcquireRequest(numPermits);
         String requestBody = objectMapper.writeValueAsString(payload);
 
@@ -91,11 +89,9 @@ public class ExternalThrottler implements Serializable {
             if (acquireResponse.isAcquired()) {
                 availablePermits = numPermits;
                 permitsAcquired.inc(numPermits);
-                System.out.println("Got Permits");
                 return;
             } else {
                 throttledRequests.inc();
-                System.out.println("Got throttled");
                 Thread.sleep(Math.max(acquireResponse.getRetryAfterMillis(), BASE_SLEEP_MS));
             }
         }

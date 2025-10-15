@@ -33,7 +33,7 @@ public class ThrottlerPipeline {
                     @ProcessElement
                     public void processElement(@Element Long element, OutputReceiver<String> out) throws IOException, InterruptedException {
                         throttler.waitAndAcquire();
-                        String output = "Processing element: " + element + " at " + System.currentTimeMillis();
+                        String output = "Processing element: " + element;
                         System.out.println(output);
                         out.output(output);
                     }
