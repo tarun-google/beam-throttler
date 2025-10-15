@@ -1,8 +1,7 @@
-package com.example.ExternalThrottler;
+package com.example.ExternalServiceThrottler;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 public class ExternalThrottlerDTOs {

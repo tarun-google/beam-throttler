@@ -1,7 +1,7 @@
-package com.example.ExternalThrottler;
+package com.example.ExternalServiceThrottler;
 
-import com.example.ExternalThrottler.ExternalThrottlerDTOs.AcquireRequest;
-import com.example.ExternalThrottler.ExternalThrottlerDTOs.AcquireResponse;
+import com.example.ExternalServiceThrottler.ExternalThrottlerDTOs.AcquireRequest;
+import com.example.ExternalServiceThrottler.ExternalThrottlerDTOs.AcquireResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
@@ -34,17 +34,14 @@ public class ExternalThrottler implements Serializable {
     private ExternalThrottler(String rateLimiterUrl, int permitBatchSize) {
         this.rateLimiterUrl = rateLimiterUrl;
         this.permitBatchSize = permitBatchSize;
-    }
-
-    public static ExternalThrottler of(String rateLimiterUrl, int permitBatchSize) {
-        return new ExternalThrottler(rateLimiterUrl, permitBatchSize);
-    }
-
-    public void setup() {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(REQUEST_TIMEOUT)
                 .build();
         this.objectMapper = new ObjectMapper();
+    }
+
+    public static ExternalThrottler of(String rateLimiterUrl, int permitBatchSize) {
+        return new ExternalThrottler(rateLimiterUrl, permitBatchSize);
     }
 
     /**
@@ -54,8 +51,8 @@ public class ExternalThrottler implements Serializable {
     public void waitAndAcquire() throws IOException, InterruptedException {
         if (availablePermits == 0) {
             acquirePermits(this.permitBatchSize);
-            availablePermits--;
         }
+        availablePermits--;
     }
 
     private void acquirePermits(int numPermits) throws IOException, InterruptedException {

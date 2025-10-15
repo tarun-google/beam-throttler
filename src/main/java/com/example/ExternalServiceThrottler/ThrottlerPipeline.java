@@ -1,4 +1,4 @@
-package com.example.ExternalThrottler;
+package com.example.ExternalServiceThrottler;
 
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.GenerateSequence;
@@ -27,7 +27,6 @@ public class ThrottlerPipeline {
                     @Setup
                     public void setup() {
                         this.throttler = ExternalThrottler.of(RATE_LIMITER_URL, 10);
-                        this.throttler.setup();
                     }
 
                     @ProcessElement

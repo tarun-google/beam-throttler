@@ -1,9 +1,9 @@
-package com.example.ExternalThrottler;
+package com.example.ExternalServiceThrottler;
 
-import com.example.ExternalThrottler.ExternalThrottlerDTOs.AcquireRequest;
-import com.example.ExternalThrottler.ExternalThrottlerDTOs.AcquireResponse;
-import com.example.ExternalThrottler.ExternalThrottlerDTOs.RateUpdateRequest;
-import com.example.ExternalThrottler.ExternalThrottlerDTOs.StatusResponse;
+import com.example.ExternalServiceThrottler.ExternalThrottlerDTOs.AcquireRequest;
+import com.example.ExternalServiceThrottler.ExternalThrottlerDTOs.AcquireResponse;
+import com.example.ExternalServiceThrottler.ExternalThrottlerDTOs.RateUpdateRequest;
+import com.example.ExternalServiceThrottler.ExternalThrottlerDTOs.StatusResponse;
 import com.example.TokenBucketRateLimiter;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinJackson;
