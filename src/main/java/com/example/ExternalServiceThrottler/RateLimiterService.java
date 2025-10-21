@@ -8,14 +8,21 @@ import com.example.TokenBucketRateLimiter;
 import io.javalin.Javalin;
 import io.javalin.json.JavalinJackson;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class RateLimiterService {
 
     private static final TokenBucketRateLimiter rateLimiter = TokenBucketRateLimiter.create(20, 20);
+    private static final Map<Long, Integer> callsPerMinute = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         Javalin app = Javalin.create(config -> config.jsonMapper(new JavalinJackson())).start(8080);
 
         app.post("/acquire", ctx -> {
+            long currentSecond = System.currentTimeMillis() / (60*1000);
+            callsPerMinute.compute(currentSecond, (k, v) -> (v == null) ? 1 : v + 1);
+
             AcquireRequest req = ctx.bodyAsClass(AcquireRequest.class);
             if (rateLimiter.tryAcquire(req.getPermits())) {
                 ctx.json(new AcquireResponse(true, 0L));
@@ -23,12 +30,17 @@ public class RateLimiterService {
                 long retryAfter = rateLimiter.getRetryAfterMillis(req.getPermits());
                 ctx.json(new AcquireResponse(false, retryAfter));
             }
+
         });
 
         app.post("/rate", ctx -> {
             RateUpdateRequest req = ctx.bodyAsClass(RateUpdateRequest.class);
             rateLimiter.setRate(req.getPermitsPerSecond());
             ctx.json(new StatusResponse("rate updated"));
+        });
+
+        app.get("/metrics", ctx -> {
+            ctx.json(callsPerMinute);
         });
     }
 }
